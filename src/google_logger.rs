@@ -7,6 +7,8 @@ use thiserror::Error;
 
 use super::gauth::{GAuth, GAuthCredential, GAuthError};
 
+const WRITE_URL: &str = "https://logging.googleapis.com/v2/entries:write";
+
 pub trait LogMapper: Send + Sync + 'static {
     fn map(&self, logger: &GoogleLogger<Self>, entry: Value) -> serde_json::Value
     where
@@ -74,7 +76,7 @@ impl<M: LogMapper> GoogleLogger<M> {
         // https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/write#response-body
         let maybe_response_error = self
             .http_client
-            .post("https://logging.googleapis.com/v2/entries:write")
+            .post(WRITE_URL)
             .header("Content-Type", "application/json")
             .header("Authorization", access_token)
             .json(&json!({
