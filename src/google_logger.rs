@@ -45,7 +45,7 @@ pub enum LoggerError {
 }
 
 impl<M: LogMapper> GoogleLogger<M> {
-    pub fn new(log_name: Arc<str>, credential_bytes: Arc<Vec<u8>>, mapper: M) -> GoogleLogger<M> {
+    pub fn new(log_label: Arc<str>, credential_bytes: Arc<Vec<u8>>, mapper: M) -> GoogleLogger<M> {
         let service_account = GAuth::from_bytes(
             credential_bytes.as_ref(),
             &["https://www.googleapis.com/auth/logging.write"],
@@ -56,7 +56,7 @@ impl<M: LogMapper> GoogleLogger<M> {
             .project_id;
 
         Self {
-            log_label: log_name,
+            log_label,
             project_id,
             gauth: service_account,
             http_client: Client::new(),

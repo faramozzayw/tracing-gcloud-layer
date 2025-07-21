@@ -3,26 +3,12 @@ use std::{io::Write, pin::Pin, sync::Arc};
 use tokio::{
     sync::{RwLock, mpsc, oneshot},
     task::JoinHandle,
-    time::{Duration, Sleep},
+    time::Sleep,
 };
 
+use crate::GoogleWriterConfig;
+
 use super::google_logger::{GoogleLogger, LogMapper};
-
-#[derive(Debug, Clone)]
-pub struct GoogleWriterConfig {
-    pub max_batch: usize,
-    pub max_delay: Duration,
-}
-
-impl Default for GoogleWriterConfig {
-    fn default() -> Self {
-        Self {
-            max_batch: 10,
-            max_delay: Duration::from_secs(2),
-        }
-    }
-}
-
 pub struct GoogleWriter<M: LogMapper> {
     sender: mpsc::Sender<Value>,
     shutdown_trigger: Option<oneshot::Sender<()>>,
@@ -32,7 +18,7 @@ pub struct GoogleWriter<M: LogMapper> {
 
 impl<M: LogMapper> GoogleWriter<M> {
     pub fn new(log_name: &str, credential: Vec<u8>, config: GoogleWriterConfig, mapper: M) -> Self {
-        let (tx, rx) = mpsc::channel::<Value>(1000);
+        let (tx, rx) = mpsc::channel::<Value>(config.buffer_size);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
         let log_name = Arc::from(log_name);

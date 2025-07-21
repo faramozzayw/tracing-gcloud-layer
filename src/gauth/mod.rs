@@ -25,6 +25,7 @@ pub struct GAuth {
 }
 
 impl GAuth {
+    #[allow(dead_code)]
     /// Creates a new service account from a key file and scopes
     pub fn from_file(key_path: impl AsRef<Path>, scopes: &[&str]) -> Result<Self> {
         let bytes = std::fs::read(key_path.as_ref()).map_err(|err| {

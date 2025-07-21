@@ -1,16 +1,17 @@
-use google_writer::GoogleWriterConfig;
 use tracing_subscriber::{Registry, layer::SubscriberExt};
 
 use self::default_mapper::DefaultLogMapper;
 use self::google_writer::GoogleWriter;
 
+mod config;
 mod default_mapper;
 mod gauth;
 pub mod google_logger;
 pub mod google_writer;
-pub mod log_entry;
+mod log_entry;
 mod utils;
 
+pub use config::GoogleWriterConfig;
 pub use utils::{extract_trace_id, get_severity};
 
 pub fn get_google_logger_layer(
