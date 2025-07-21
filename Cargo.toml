@@ -2,6 +2,28 @@
 name = "tracing-gcloud-layer"
 version = "0.1.0"
 edition = "2024"
+publish = true
+license = "MIT"
+readme = "README.md"
+description = "A `tracing` layer for sending structured logs to Google Cloud Logging."
+
+repository = "https://github.com/faramozzayw/tracing-gcloud-layer"
+homepage = "https://github.com/faramozzayw/tracing-gcloud-layer"
+documentation = "https://docs.rs/tracing-gcloud-layer"
+
+keywords = [
+  "tracing",
+  "google-cloud",
+  "gcp",
+  "logging",
+  "layer",
+  "cloud-logging",
+  "structured-logging",
+  "observability",
+  "async",
+  "tokio",
+]
+categories = ["development-tools::debugging", "asynchronous", "logging"]
 
 [dependencies]
 reqwest = { version = "0.12", features = ["json"] }
@@ -10,7 +32,7 @@ serde_json = "1"
 serde_derive = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
-tracing = "0.1.41"
+tracing = "0.1"
 tracing-stackdriver = "0.10"
 tracing-subscriber = "0.3"
 base64 = "0.22"
