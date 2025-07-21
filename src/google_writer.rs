@@ -45,8 +45,6 @@ impl<M: LogMapper> GoogleWriter<M> {
         let mut flush_deadline: Option<Pin<Box<Sleep>>> = None;
 
         loop {
-            let mut deadline_fut = flush_deadline.as_mut().map(|d| d.as_mut());
-
             tokio::select! {
                 _ = &mut shutdown => {
                     break;
@@ -64,8 +62,11 @@ impl<M: LogMapper> GoogleWriter<M> {
                         flush_deadline = None;
                     }
                 }
-
-                _ = deadline_fut.as_mut().unwrap(), if deadline_fut.is_some() => {
+                _ = async {
+                    if let Some(deadline) = &mut flush_deadline {
+                        deadline.as_mut().await;
+                    }
+                }, if flush_deadline.is_some() => {
                     if !buffer.is_empty() {
                         Self::flush_batch(&logger, std::mem::take(&mut buffer)).await;
                     }
