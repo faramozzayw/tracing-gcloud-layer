@@ -6,9 +6,9 @@ use tokio::{
     time::Sleep,
 };
 
+use super::google_logger::{GoogleLogger, LogMapper};
 use crate::GoogleWriterConfig;
 
-use super::google_logger::{GoogleLogger, LogMapper};
 pub struct GoogleWriter<M: LogMapper> {
     sender: mpsc::Sender<Value>,
     shutdown_trigger: Option<oneshot::Sender<()>>,
@@ -17,14 +17,10 @@ pub struct GoogleWriter<M: LogMapper> {
 }
 
 impl<M: LogMapper> GoogleWriter<M> {
-    pub fn new(log_name: &str, credential: Vec<u8>, config: GoogleWriterConfig, mapper: M) -> Self {
+    pub fn new(google_logger: GoogleLogger<M>, config: GoogleWriterConfig) -> Self {
         let (tx, rx) = mpsc::channel::<Value>(config.buffer_size);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-        let log_name = Arc::from(log_name);
-        let credential = Arc::new(credential);
-        let logger = Arc::new(RwLock::new(GoogleLogger::new(log_name, credential, mapper)));
-
+        let logger = Arc::new(RwLock::new(google_logger));
         let handle = tokio::spawn(Self::run_batch_logger(rx, shutdown_rx, config, logger));
 
         Self {

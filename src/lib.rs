@@ -1,4 +1,6 @@
-use tracing_subscriber::{Registry, layer::SubscriberExt};
+use derive_builder::Builder;
+use google_logger::{GoogleLogger, LogMapper, LoggerError};
+use tracing_subscriber::Registry;
 
 use self::default_mapper::DefaultLogMapper;
 use self::google_writer::GoogleWriter;
@@ -14,28 +16,33 @@ mod utils;
 pub use config::GoogleWriterConfig;
 pub use utils::{extract_trace_id, get_severity};
 
-pub fn get_google_logger_layer(
-    log_name: &'static str,
+#[derive(Builder, Clone)]
+#[builder(pattern = "owned", setter(into, strip_option))]
+pub struct GCloudLayerConfig<M: LogMapper = DefaultLogMapper> {
+    log_name: String,
     logger_credential: Vec<u8>,
-) -> tracing_stackdriver::Layer<Registry, impl Fn() -> GoogleWriter<DefaultLogMapper>> {
-    tracing_stackdriver::layer().with_writer(move || {
-        GoogleWriter::new(
-            log_name,
-            logger_credential.to_owned(),
-            GoogleWriterConfig::default(),
-            DefaultLogMapper,
-        )
-    })
+    #[builder(default)]
+    config: GoogleWriterConfig,
+    #[builder(default)]
+    log_mapper: M,
 }
 
-pub fn init_tracing(log_name: &'static str) {
-    let logger_credential = std::env::var("LOGGER_CREDENTIAL").unwrap().into_bytes();
-    let google_logger_layer = get_google_logger_layer(log_name, logger_credential);
+impl<M: LogMapper> GCloudLayerConfig<M> {
+    pub fn build_layer(
+        self,
+    ) -> Result<tracing_stackdriver::Layer<Registry, impl Fn() -> GoogleWriter<M>>, LoggerError>
+    {
+        let GCloudLayerConfig {
+            config,
+            log_mapper,
+            log_name,
+            logger_credential,
+        } = self;
 
-    let subscriber = Registry::default()
-        .with(google_logger_layer)
-        .with(tracing_subscriber::fmt::layer());
+        let log_name = std::sync::Arc::from(log_name);
+        let logger = GoogleLogger::new(log_name, logger_credential, log_mapper)?;
 
-    tracing::dispatcher::set_global_default(subscriber.into())
-        .expect("Could not set up global logger");
+        Ok(tracing_stackdriver::layer()
+            .with_writer(move || GoogleWriter::new(logger.clone(), config.clone())))
+    }
 }

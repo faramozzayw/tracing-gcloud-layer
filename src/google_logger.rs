@@ -8,20 +8,26 @@ use thiserror::Error;
 use super::gauth::{GAuth, GAuthCredential, GAuthError};
 
 const WRITE_URL: &str = "https://logging.googleapis.com/v2/entries:write";
+const SCOPES: [&str; 1] = ["https://www.googleapis.com/auth/logging.write"];
 
-pub trait LogMapper: Send + Sync + 'static {
-    fn map(&self, logger: &GoogleLogger<Self>, entry: Value) -> serde_json::Value
+#[derive(Debug, Clone)]
+pub struct LogContext {
+    pub log_label: Arc<str>,
+    pub project_id: Arc<str>,
+}
+
+pub trait LogMapper: Send + Sync + 'static + Clone + Default {
+    fn map(&self, context: LogContext, entry: Value) -> serde_json::Value
     where
         Self: Sized;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GoogleLogger<M: LogMapper> {
-    pub log_label: Arc<str>,
-    pub project_id: String,
-    pub gauth: GAuth,
-    pub http_client: Client,
-    pub mapper: M,
+    log_context: LogContext,
+    gauth: GAuth,
+    http_client: Client,
+    mapper: M,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,30 +53,35 @@ pub enum LoggerError {
 }
 
 impl<M: LogMapper> GoogleLogger<M> {
-    pub fn new(log_label: Arc<str>, credential_bytes: Arc<Vec<u8>>, mapper: M) -> GoogleLogger<M> {
-        let service_account = GAuth::from_bytes(
-            credential_bytes.as_ref(),
-            &["https://www.googleapis.com/auth/logging.write"],
-        );
-
-        let project_id = GAuthCredential::from_bytes(credential_bytes.as_ref())
-            .expect("Google Credential must be valid")
+    pub fn new(
+        log_label: Arc<str>,
+        credential_bytes: impl AsRef<[u8]>,
+        mapper: M,
+    ) -> Result<GoogleLogger<M>, LoggerError> {
+        let credential_bytes = credential_bytes.as_ref();
+        let service_account = GAuth::from_bytes(credential_bytes, &SCOPES);
+        let project_id = GAuthCredential::from_bytes(credential_bytes)
+            .map_err(|e| LoggerError::GAuth(GAuthError::SerdeJson(e)))?
             .project_id;
 
-        Self {
-            log_label,
-            project_id,
+        let project_id = Arc::from(project_id);
+
+        Ok(Self {
+            log_context: LogContext {
+                log_label,
+                project_id,
+            },
             gauth: service_account,
             http_client: Client::new(),
             mapper,
-        }
+        })
     }
 
     pub async fn write_logs(&mut self, log_entry: Vec<Value>) -> Result<(), LoggerError> {
         let access_token = self.gauth.access_token().await?;
         let entries = log_entry
             .into_iter()
-            .map(|v| self.mapper.map(&self, v))
+            .map(|v| self.mapper.map(self.context(), v))
             .collect::<Vec<_>>();
 
         // https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/write#response-body
@@ -95,11 +106,8 @@ impl<M: LogMapper> GoogleLogger<M> {
         Ok(())
     }
 
-    pub fn log_label(&self) -> &str {
-        &self.log_label
-    }
-
-    pub fn project_id(&self) -> &str {
-        &self.project_id
+    #[inline]
+    pub fn context(&self) -> LogContext {
+        self.log_context.clone()
     }
 }
