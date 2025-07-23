@@ -7,21 +7,30 @@ use thiserror::Error;
 
 use super::gauth::{GAuth, GAuthCredential, GAuthError};
 
+/// Google Cloud Logging API endpoint for writing log entries.
 const WRITE_URL: &str = "https://logging.googleapis.com/v2/entries:write";
+/// OAuth 2.0 scope for logging write access.
 const SCOPES: [&str; 1] = ["https://www.googleapis.com/auth/logging.write"];
 
 #[derive(Debug, Clone)]
 pub struct LogContext {
+    /// The log label associated with the logger (e.g., log name).
     pub log_label: Arc<str>,
+    /// The GCP project ID where logs should be written.
     pub project_id: Arc<str>,
 }
 
-pub trait LogMapper: Send + Sync + 'static + Clone + Default {
+/// Trait for mapping a raw JSON log entry to a structured format compatible with Google Cloud Logging.
+///
+/// You can implement this to transform log data (e.g., enrich with labels or restructure).
+pub trait LogMapper: Send + Sync + Clone + Default + 'static {
+    /// Converts a raw log entry into a structured JSON value using context information.
     fn map(&self, context: LogContext, entry: Value) -> serde_json::Value
     where
         Self: Sized;
 }
 
+/// A logger that writes entries to Google Cloud Logging using the [entries.write](https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/write) API.
 #[derive(Debug, Clone)]
 pub struct GoogleLogger<M: LogMapper> {
     log_context: LogContext,
@@ -53,6 +62,7 @@ pub enum LoggerError {
 }
 
 impl<M: LogMapper> GoogleLogger<M> {
+    /// Creates a new `GoogleLogger` with the given log label, service account credentials, and log mapper.
     pub fn new(
         log_label: Arc<str>,
         credential_bytes: impl AsRef<[u8]>,
@@ -77,6 +87,9 @@ impl<M: LogMapper> GoogleLogger<M> {
         })
     }
 
+    /// Sends a batch of log entries to Google Cloud Logging.
+    ///
+    /// Each entry is passed through the configured `LogMapper` before being sent.
     pub async fn write_logs(&mut self, log_entry: Vec<Value>) -> Result<(), LoggerError> {
         let access_token = self.gauth.access_token().await?;
         let entries = log_entry

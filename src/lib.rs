@@ -16,10 +16,22 @@ mod utils;
 pub use config::GoogleWriterConfig;
 pub use utils::{extract_trace_id, get_severity};
 
+pub type DefaultGCloudLayerConfig = GCloudLayerConfig<DefaultLogMapper>;
+pub type DefaultGCloudLayerConfigBuilder = GCloudLayerConfigBuilder<DefaultLogMapper>;
+
+/// Configuration for setting up Google Cloud logging with `tracing`.
+///
+/// `GCloudLayerConfig` holds everything needed to build a `tracing_stackdriver` layer
+/// that sends logs to Google Cloud Logging. It supports custom log mappers, batching,
+/// and uses service account credentials for authentication.
+///
+/// Use `.build_layer()` to produce a ready-to-use `tracing` layer.
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(into, strip_option))]
 pub struct GCloudLayerConfig<M: LogMapper = DefaultLogMapper> {
+    /// The log name shown in Cloud Logging (e.g., `"stdout"` or `"my-service"`).
     log_name: String,
+    /// Raw bytes of a Google service account JSON key.
     logger_credential: Vec<u8>,
     #[builder(default)]
     config: GoogleWriterConfig,
@@ -28,6 +40,24 @@ pub struct GCloudLayerConfig<M: LogMapper = DefaultLogMapper> {
 }
 
 impl<M: LogMapper> GCloudLayerConfig<M> {
+    /// Builds a `tracing_stackdriver` layer using this config.
+    ///
+    /// Creates a `GoogleLogger` from the provided log name and credentials,
+    /// then wraps it in a `GoogleWriter` for async batching. Returns a
+    /// `tracing_stackdriver` layer that can be added to a subscriber.
+    ///
+    /// # Example
+    /// ```
+    /// use tracing_gcloud_layer::DefaultGCloudLayerConfigBuilder;
+    ///
+    /// let layer = DefaultGCloudLayerConfigBuilder::default()
+    ///     .log_name("my-service")
+    ///     .logger_credential(include_bytes!("svc-account.json").to_vec())
+    ///     .build()?
+    ///     .build_layer()?;
+    ///
+    /// tracing_subscriber::registry().with(layer).init();
+    /// ```
     pub fn build_layer(
         self,
     ) -> Result<tracing_stackdriver::Layer<Registry, impl Fn() -> GoogleWriter<M>>, LoggerError>
