@@ -11,18 +11,7 @@ repository = "https://github.com/faramozzayw/tracing-gcloud-layer"
 homepage = "https://github.com/faramozzayw/tracing-gcloud-layer"
 documentation = "https://docs.rs/tracing-gcloud-layer"
 
-keywords = [
-  "tracing",
-  "google-cloud",
-  "gcp",
-  "logging",
-  "layer",
-  "cloud-logging",
-  "structured-logging",
-  "observability",
-  "async",
-  "tokio",
-]
+keywords = ["tracing", "google-cloud", "gcp", "logging", "layer"]
 categories = ["development-tools::debugging", "asynchronous", "logging"]
 
 [dependencies]
