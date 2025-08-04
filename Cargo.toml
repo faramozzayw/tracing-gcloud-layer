@@ -12,7 +12,7 @@ homepage = "https://github.com/faramozzayw/tracing-gcloud-layer"
 documentation = "https://docs.rs/tracing-gcloud-layer"
 
 keywords = ["tracing", "google-cloud", "gcp", "logging", "layer"]
-categories = ["development-tools::debugging", "asynchronous", "logging"]
+categories = ["development-tools::debugging", "asynchronous"]
 
 [dependencies]
 reqwest = { version = "0.12", features = ["json"] }
