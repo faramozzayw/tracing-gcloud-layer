@@ -47,16 +47,22 @@ impl<M: LogMapper> GCloudLayerConfig<M> {
     /// `tracing_stackdriver` layer that can be added to a subscriber.
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// use tracing_gcloud_layer::DefaultGCloudLayerConfigBuilder;
+    /// use tracing_subscriber::prelude::*;
     ///
-    /// let layer = DefaultGCloudLayerConfigBuilder::default()
-    ///     .log_name("my-service")
-    ///     .logger_credential(include_bytes!("svc-account.json").to_vec())
-    ///     .build()?
-    ///     .build_layer()?;
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let svc_account_bytes = std::fs::read("svc-account.json")?;
     ///
-    /// tracing_subscriber::registry().with(layer).init();
+    ///     let layer = DefaultGCloudLayerConfigBuilder::default()
+    ///         .log_name("my-service")
+    ///         .logger_credential(svc_account_bytes)
+    ///         .build()?
+    ///         .build_layer()?;
+    ///
+    ///     tracing_subscriber::registry().with(layer).init();
+    ///     Ok(())
+    /// }
     /// ```
     pub fn build_layer(
         self,
