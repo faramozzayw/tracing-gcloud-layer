@@ -1,19 +1,21 @@
-use derive_builder::Builder;
-use google_logger::{GoogleLogger, LogMapper, LoggerError};
-use tracing_subscriber::Registry;
-
-use self::default_mapper::DefaultLogMapper;
-use self::google_writer::GoogleWriter;
-
 mod config;
 mod default_mapper;
 mod gauth;
 pub mod google_logger;
 pub mod google_writer;
 mod log_entry;
+mod runtime;
 mod utils;
 
+use derive_builder::Builder;
+use google_logger::{GoogleLogger, LogMapper, LoggerError};
+use runtime::GoogleWriterRuntime;
+use tracing_subscriber::Registry;
+
+use self::google_writer::GoogleWriterHandle;
+
 pub use config::GoogleWriterConfig;
+pub use default_mapper::DefaultLogMapper;
 pub use utils::{extract_trace_id, get_severity};
 
 pub type DefaultGCloudLayerConfig = GCloudLayerConfig<DefaultLogMapper>;
@@ -66,8 +68,13 @@ impl<M: LogMapper> GCloudLayerConfig<M> {
     /// ```
     pub fn build_layer(
         self,
-    ) -> Result<tracing_stackdriver::Layer<Registry, impl Fn() -> GoogleWriter<M>>, LoggerError>
-    {
+    ) -> Result<
+        (
+            tracing_stackdriver::Layer<Registry, impl Fn() -> GoogleWriterHandle>,
+            GoogleWriterRuntime<M>,
+        ),
+        LoggerError,
+    > {
         let GCloudLayerConfig {
             config,
             log_mapper,
@@ -78,7 +85,13 @@ impl<M: LogMapper> GCloudLayerConfig<M> {
         let log_name = std::sync::Arc::from(log_name);
         let logger = GoogleLogger::new(log_name, logger_credential, log_mapper)?;
 
-        Ok(tracing_stackdriver::layer()
-            .with_writer(move || GoogleWriter::new(logger.clone(), config.clone())))
+        let runtime = GoogleWriterRuntime::new(logger.clone(), config.clone());
+
+        let layer = tracing_stackdriver::layer().with_writer({
+            let writer = runtime.writer();
+            move || writer.clone()
+        });
+
+        Ok((layer, runtime))
     }
 }
