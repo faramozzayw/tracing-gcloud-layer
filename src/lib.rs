@@ -9,13 +9,13 @@ mod utils;
 
 use derive_builder::Builder;
 use google_logger::{GoogleLogger, LogMapper, LoggerError};
-use runtime::GoogleWriterRuntime;
 use tracing_subscriber::Registry;
 
 use self::google_writer::GoogleWriterHandle;
 
 pub use config::GoogleWriterConfig;
 pub use default_mapper::DefaultLogMapper;
+pub use runtime::GoogleWriterRuntime;
 pub use utils::{extract_trace_id, get_severity};
 
 pub type DefaultGCloudLayerConfig = GCloudLayerConfig<DefaultLogMapper>;
