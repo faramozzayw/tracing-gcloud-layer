@@ -53,16 +53,18 @@ impl<M: LogMapper> GCloudLayerConfig<M> {
     /// use tracing_gcloud_layer::DefaultGCloudLayerConfigBuilder;
     /// use tracing_subscriber::prelude::*;
     ///
-    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let svc_account_bytes = std::fs::read("svc-account.json")?;
     ///
-    ///     let layer = DefaultGCloudLayerConfigBuilder::default()
+    ///     let (layer, runtime) = DefaultGCloudLayerConfigBuilder::default()
     ///         .log_name("my-service")
     ///         .logger_credential(svc_account_bytes)
     ///         .build()?
     ///         .build_layer()?;
     ///
     ///     tracing_subscriber::registry().with(layer).init();
+    ///     runtime.shutdown().await;
     ///     Ok(())
     /// }
     /// ```
