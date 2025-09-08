@@ -6,7 +6,7 @@ use crate::{
     log_entry::{Labels, Resource},
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct DefaultLogMapper;
 
 impl LogMapper for DefaultLogMapper {
