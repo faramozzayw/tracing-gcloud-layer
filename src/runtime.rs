@@ -13,6 +13,7 @@ use tokio::{
 /// `GoogleWriterRuntime` owns the background task, handles shutdown, and provides a
 /// [`GoogleWriterHandle`] for synchronous log writing. It is generic over a type implementing [`LogMapper`],
 /// which is responsible for mapping structured log entries to the format expected by Google Cloud Logging.
+#[derive(Debug)]
 pub struct GoogleWriterRuntime<M: LogMapper> {
     handle: GoogleWriterHandle,
     shutdown_handle: Option<JoinHandle<()>>,

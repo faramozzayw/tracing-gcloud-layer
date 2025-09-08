@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEntry {
     #[serde(rename = "logName")]
     pub log_name: String,
@@ -16,7 +16,7 @@ pub struct LogEntry {
     pub trace: Value,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Labels {
     pub context: String,
     #[serde(rename = "requestId")]

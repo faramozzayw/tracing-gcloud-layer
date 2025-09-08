@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 /// This implements [`std::io::Write`] so it can be used as a sink for structured logs,
 /// e.g., from `tracing` or other JSON-based logging systems. Log entries are sent
 /// through an unbounded channel to a background batch writer.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GoogleWriterHandle {
     pub(crate) sender: mpsc::UnboundedSender<Value>,
 }

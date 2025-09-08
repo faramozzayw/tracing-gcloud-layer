@@ -28,7 +28,7 @@ cargo add tracing-gcloud-layer
 use tracing_gcloud_layer::DefaultGCloudLayerConfigBuilder;
 use tracing_subscriber::Registry;
 
-let layer = DefaultGCloudLayerConfigBuilder::default()
+let (layer, _runtime) = DefaultGCloudLayerConfigBuilder::default()
     .log_name("my-service")
     .logger_credential(include_bytes!("../gcp-service-account.json"))
     .build()
@@ -69,7 +69,7 @@ impl LogMapper for CustomLogMapper {
     }
 }
 
-let layer = GCloudLayerConfigBuilder::<CustomLogMapper>::default()
+let (layer, _runtime) = GCloudLayerConfigBuilder::<CustomLogMapper>::default()
     .log_name("custom-logs")
     .logger_credential(include_bytes!("../gcp.json"))
     .log_mapper(CustomLogMapper)
