@@ -17,6 +17,7 @@ pub struct GoogleWriterRuntime<M: LogMapper> {
     handle: GoogleWriterHandle,
     shutdown_handle: Option<JoinHandle<()>>,
     shutdown_trigger: Option<oneshot::Sender<()>>,
+    flush_trigger: Arc<RwLock<Option<oneshot::Sender<()>>>>,
     _marker: std::marker::PhantomData<M>,
 }
 
@@ -30,13 +31,17 @@ impl<M: LogMapper + Send + Sync + 'static> GoogleWriterRuntime<M> {
     /// The background task also flushes any remaining logs on shutdown.
     pub fn new(google_logger: GoogleLogger<M>, config: GoogleWriterConfig) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel::<Value>();
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+        let (flush_tx, flush_rx) = oneshot::channel();
+        let flush_trigger = Arc::new(RwLock::new(Some(flush_tx)));
+
         let logger = Arc::new(RwLock::new(google_logger));
         let logger_clone = logger.clone();
+        let flush_trigger_clone = flush_trigger.clone();
 
         let handle_task = tokio::spawn(async move {
             let mut buffer = Vec::with_capacity(config.max_batch);
-            let mut shutdown_rx = shutdown_rx;
+            let mut flush_rx = flush_rx;
 
             loop {
                 tokio::select! {
@@ -66,6 +71,17 @@ impl<M: LogMapper + Send + Sync + 'static> GoogleWriterRuntime<M> {
                         break;
                     }
 
+                    _ = &mut flush_rx => {
+                        // Flush buffer on manual flush request
+                        if !buffer.is_empty() {
+                            Self::flush_batch(&logger_clone, std::mem::take(&mut buffer)).await;
+                        }
+                        // Recreate the flush channel for future flush requests
+                        let (new_tx, new_rx) = oneshot::channel();
+                        flush_rx = new_rx;
+                        *flush_trigger_clone.write().await = Some(new_tx);
+                    }
+
                     _ = sleep(config.max_delay), if !buffer.is_empty() => {
                         // Flush due to max_delay timeout
                         Self::flush_batch(&logger_clone, std::mem::take(&mut buffer)).await;
@@ -80,6 +96,7 @@ impl<M: LogMapper + Send + Sync + 'static> GoogleWriterRuntime<M> {
             handle: GoogleWriterHandle { sender: tx },
             shutdown_handle: Some(handle_task),
             shutdown_trigger: Some(shutdown_tx),
+            flush_trigger,
             _marker: std::marker::PhantomData,
         }
     }
@@ -89,6 +106,17 @@ impl<M: LogMapper + Send + Sync + 'static> GoogleWriterRuntime<M> {
     /// This handle can be cloned and shared across threads for synchronous logging.
     pub fn writer(&self) -> GoogleWriterHandle {
         self.handle.clone()
+    }
+
+    /// Immediately flushes all buffered logs.
+    ///
+    /// This sends a signal to the background task to flush the current buffer regardless
+    /// of `max_batch` or `max_delay`. This is useful for ensuring logs are written
+    /// before shutdown or at critical points in the application.
+    pub async fn flush(&self) {
+        if let Some(tx) = self.flush_trigger.write().await.take() {
+            let _ = tx.send(()); // ignore error if background task is shutting down
+        }
     }
 
     /// Shuts down the background task, flushing any remaining logs.
@@ -107,8 +135,6 @@ impl<M: LogMapper + Send + Sync + 'static> GoogleWriterRuntime<M> {
     }
 
     /// Flushes a batch of logs to Google Cloud Logging.
-    ///
-    /// Any errors encountered during the write are logged via `tracing::error!`.
     async fn flush_batch(logger: &Arc<RwLock<GoogleLogger<M>>>, batch: Vec<Value>) {
         let mut guard = logger.write().await;
         if let Err(err) = guard.write_logs(batch).await {
