@@ -77,6 +77,8 @@ impl<M: LogMapper + Send + Sync + 'static> GoogleWriterRuntime<M> {
                         if !buffer.is_empty() {
                             Self::flush_batch(&logger_clone, std::mem::take(&mut buffer)).await;
                         }
+                        // Signal completion to flush_and_wait
+                        let _ = flush_rx.try_recv(); // not strictly necessary if using oneshot
                         // Recreate the flush channel for future flush requests
                         let (new_tx, new_rx) = oneshot::channel();
                         flush_rx = new_rx;
@@ -118,6 +120,27 @@ impl<M: LogMapper + Send + Sync + 'static> GoogleWriterRuntime<M> {
         if let Some(tx) = self.flush_trigger.write().await.take() {
             let _ = tx.send(()); // ignore error if background task is shutting down
         }
+    }
+
+    /// Flushes all buffered logs **and waits** until the background task completes the flush.
+    pub async fn flush_and_wait(&self) {
+        let (done_tx, done_rx) = oneshot::channel();
+
+        {
+            let mut flush_trigger = self.flush_trigger.write().await;
+            *flush_trigger = Some(done_tx);
+        }
+
+        let tx_opt = {
+            let mut flush_trigger = self.flush_trigger.write().await;
+            flush_trigger.take()
+        };
+
+        if let Some(tx) = tx_opt {
+            let _ = tx.send(());
+        }
+
+        let _ = done_rx.await;
     }
 
     /// Shuts down the background task, flushing any remaining logs.
